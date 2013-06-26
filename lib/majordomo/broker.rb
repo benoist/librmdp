@@ -3,13 +3,10 @@ require 'majordomo/broker/worker'
 
 module Majordomo
   class Broker
-    HEARTBEAT_LIVENESS = 3    #  3-5 is reasonable
-    HEARTBEAT_INTERVAL = 2500 #  msecs
-    HEARTBEAT_EXPIRY   = HEARTBEAT_INTERVAL * HEARTBEAT_LIVENESS
 
-    attr_accessor :workers, :waiting, :services
+    attr_accessor :workers, :waiting, :services, :socket
 
-    def initialize
+    def initialize(bind = 'tcp://*:5555')
       @context      = ZMQ::Context.new
       @socket       = @context.socket(ZMQ::ROUTER)
       @poller       = ZMQ::Poller.new
@@ -18,7 +15,7 @@ module Majordomo
       @waiting      = []
       @heartbeat_at = Time.now + 0.001 * HEARTBEAT_INTERVAL
 
-      @socket.bind('tcp://*:5555')
+      @socket.bind(bind)
       @poller.register(@socket, ZMQ::POLLIN)
       trap(:INT) { exit }
       at_exit { destroy }
@@ -33,11 +30,10 @@ module Majordomo
           sender = message.shift
           message.shift #empty
           header = message.shift
-
           case header
-            when MDPC_CLIENT
+            when CLIENT
               message_client(sender, message)
-            when MDPC_WORKER
+            when WORKER
               message_worker(sender, message)
           end
         end
@@ -45,9 +41,10 @@ module Majordomo
         if Time.now > @heartbeat_at
           purge
           waiting.each do |worker|
-            worker.send_message(MDPW_HEARTBEAT, nil, nil)
+            worker.send_message(HEARTBEAT)
           end
           @heartbeat_at = Time.now + 0.001 * HEARTBEAT_INTERVAL
+          puts "Heartbeat #{waiting.count}"
         end
       end
     end
@@ -61,55 +58,56 @@ module Majordomo
       @socket.bind(endpoint)
     end
 
-    def message_worker(sender, *message)
+    def message_worker(sender, message)
       command      = message.shift
       identity     = sender.unpack('H*').first
-      worker_ready = @workers[identity] != nil
+      worker_ready = !!@workers[identity]
 
       worker = Worker.require(self, sender)
 
       case command
-        when MDPW_READY
+        when READY
           if worker_ready
             worker.delete(true)
           else
             service        = message.shift
-            worker.service = Service.require(service)
+            worker.service = Service.require(self, service)
             @waiting << worker
             worker.service.waiting << worker
             worker.service.workers += 1
             worker.expires_at      = Time.now + 0.001 * HEARTBEAT_EXPIRY
             worker.service.dispatch
           end
-        when MDPW_REPORT
+        when REPLY
           if worker_ready
             client = message.shift
+            message.shift
             message.unshift(worker.service.name)
-            message.unshift(MDPC_REPORT)
-            message.unshift(MDPC_CLIENT)
+            message.unshift(CLIENT)
             message.unshift(nil)
             message.unshift(client)
+            @socket.send_strings(message)
           else
             worker.delete(true)
           end
-        when MDPW_HEARTBEAT
+        when HEARTBEAT
           if worker_ready
             if @waiting.any?
               @waiting.delete(worker)
               @waiting << worker
             end
-            worker.expires_at = Time.now + 0.001 + HEARTBEAT_EXPIRY
+            worker.expires_at = Time.now + 0.001 * HEARTBEAT_EXPIRY
           else
             worker.delete(true)
           end
-        when MDPW_DISCONNECT
+        when DISCONNECT
           worker.delete(false)
       end
     end
 
     def message_client(sender, message)
       service_name = message.shift
-      service      = Service.require(service_name)
+      service      = Service.require(self, service_name)
 
       message.unshift nil
       message.unshift sender
@@ -120,10 +118,7 @@ module Majordomo
 
     def purge
       waiting.each do |worker|
-        if Time.now < worker.expires_at
-          next
-        end
-        worker.delete(false)
+        worker.delete(false) if Time.now > worker.expires_at
       end
     end
   end

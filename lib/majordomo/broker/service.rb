@@ -1,3 +1,5 @@
+require 'set'
+
 module Majordomo
   class Broker
     class Service
@@ -9,10 +11,10 @@ module Majordomo
         @requests  = []
         @waiting   = []
         @workers   = 0
-        @blacklist = Set.new
+        @blacklist = ::Set.new
       end
 
-      def require(broker, name)
+      def self.require(broker, name)
         service = broker.services[name]
 
         if service == nil
@@ -29,7 +31,7 @@ module Majordomo
         while requests.any?
           worker  = waiting.shift
           message = requests.shift
-          worker.send_message(MDPW_REQUEST, nil, message)
+          worker.send_message(REQUEST, message)
           waiting << worker
         end
       end

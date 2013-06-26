@@ -23,7 +23,7 @@ module Majordomo
 
       def delete(disconnect)
         if disconnect
-          send_message(MDPW_DISCONNECT, nil, nil)
+          send_message(DISCONNECT)
         end
 
         if service
@@ -34,9 +34,9 @@ module Majordomo
         broker.workers.delete(identity)
       end
 
-      def send_message(command, option, message)
+      def send_message(command, message = [])
         message.unshift(command)
-        message.unshift(MDPW_WORKER)
+        message.unshift(WORKER)
         message.unshift(nil)
         message.unshift(address)
 

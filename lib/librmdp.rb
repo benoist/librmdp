@@ -2,23 +2,19 @@ require 'ffi-rzmq'
 require 'majordomo/version'
 
 module Majordomo
-  MDPC_CLIENT = "MDPC0X"
+  CLIENT = 'MDPC01'
+  WORKER = 'MDPW01'
 
-  MDPC_REQUEST = "\x01"
-  MDPC_REPORT  = "\x02"
-  MDPC_NAK     = "\x03"
-
-  MDPC_COMMANDS =[NULL, 'REQUEST', 'REPORT', 'NAK']
-
-  MDPW_WORKER = 'MDPW0X'
-
-  MDPW_READY      = "\x01"
-  MDPW_REQUEST    = "\x02"
-  MDPW_REPORT     = "\x03"
-  MDPW_HEARTBEAT  = "\x04"
-  MDPW_DISCONNECT = "\x05"
-
-  MDPW_COMMANDS [NULL, 'READY', 'REQUEST', 'REPORT', 'HEARTBEAT', 'DISCONNECT']
+  READY              = "\x01"
+  REQUEST            = "\x02"
+  REPLY              = "\x03"
+  HEARTBEAT          = "\x04"
+  DISCONNECT         = "\x05"
+  HEARTBEAT_LIVENESS = 3    #  3-5 is reasonable
+  HEARTBEAT_INTERVAL = 1000 #  msecs
+  HEARTBEAT_EXPIRY   = HEARTBEAT_INTERVAL * HEARTBEAT_LIVENESS
 end
 
 require 'majordomo/broker'
+require 'majordomo/worker'
+require 'majordomo/client'
