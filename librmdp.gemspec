@@ -1,11 +1,11 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'librmdp/version'
+require 'majordomo/version'
 
 Gem::Specification.new do |spec|
   spec.name          = 'librmdp'
-  spec.version       = Librmdp::VERSION
+  spec.version       = Majordomo::VERSION
   spec.authors       = ['Benoist']
   spec.email         = %w(benoist.claassen@gmail.com)
   spec.description   = %q{TODO: Write a gem description}

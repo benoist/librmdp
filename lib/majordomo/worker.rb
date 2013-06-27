@@ -35,8 +35,6 @@ module Majordomo
       send_to_broker(READY, [@service])
       @liveness     = HEARTBEAT_LIVENESS
       @heartbeat_at = Time.now + 0.001 * @heartbeat
-
-      puts 'Connected to broker'
     end
 
     def send_to_broker(command, message = [])
