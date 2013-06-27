@@ -8,9 +8,9 @@ Gem::Specification.new do |spec|
   spec.version       = Majordomo::VERSION
   spec.authors       = ['Benoist']
   spec.email         = %w(benoist.claassen@gmail.com)
-  spec.description   = %q{TODO: Write a gem description}
-  spec.summary       = %q{TODO: Write a gem summary}
-  spec.homepage      = ''
+  spec.description   = %q{A ruby implementation of the ZeroMQ majordomo pattern v0.1}
+  spec.summary       = %q{A ruby implementation of the ZeroMQ majordomo pattern v0.1}
+  spec.homepage      = 'https://github.com/benoist/librmdp'
   spec.license       = 'MIT'
 
   spec.files         = `git ls-files`.split($/)
