@@ -1,6 +1,9 @@
 # Librmdp
 
-TODO: Write a gem description
+A ruby implementation of the majordomo pattern
+http://rfc.zeromq.org/spec:7
+
+At this stage it's in POC stage. Use at own risk.
 
 ## Installation
 
