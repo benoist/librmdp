@@ -6,8 +6,8 @@ module Majordomo
 
     attr_accessor :workers, :waiting, :services, :socket
 
-    def initialize(bind = 'tcp://*:5555')
-      @context      = ZMQ::Context.new
+    def initialize(bind = 'tcp://*:5555', context = ZMQ::Context.new)
+      @context      = context
       @socket       = @context.socket(ZMQ::ROUTER)
       @poller       = ZMQ::Poller.new
       @services     = {}

@@ -2,8 +2,8 @@ module Majordomo
   class Worker
     attr_accessor :broker, :service, :worker, :heartbeat_at, :heartbeat, :liveness, :reconnect
 
-    def initialize(broker, service)
-      @context = ZMQ::Context.new
+    def initialize(broker, service, context = ZMQ::Context.new)
+      @context = context
       @poller  = ZMQ::Poller.new
       @broker  = broker
       @service = service

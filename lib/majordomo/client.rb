@@ -2,8 +2,8 @@ module Majordomo
   class Client
     attr_accessor :timeout, :client
 
-    def initialize(broker)
-      @context = ZMQ::Context.new
+    def initialize(broker, context = ZMQ::Context.new)
+      @context = context
       @poller  = ZMQ::Poller.new
       @broker  = broker
 
