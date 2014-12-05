@@ -30,7 +30,7 @@ Start a broker
 Build a worker with 'echo' as service name
 ==========================================
 
-    worker = Majordomo::Worker.new('tcp://0.0.0.0:5555', 'echo')
+    worker = Majordomo::Worker.new(Majordomo::Config.new, 'echo')
 
     loop do
       request = worker.receive_message(reply_to = '')
@@ -40,7 +40,7 @@ Build a worker with 'echo' as service name
 
 Build a client
 ==============
-    client = Majordomo::Client.new('tcp://0.0.0.0:5555')
+    client = Majordomo::AsyncClient.new(Majordomo::Config.new)
     client.send_message('echo', 'a')
 
     response = client.receive_message
