@@ -4,12 +4,13 @@ require 'majordomo/broker/worker'
 module Majordomo
   class Broker
 
-    attr_accessor :workers, :waiting, :services, :socket
+    attr_accessor :workers, :waiting, :services, :socket, :logger
 
     def initialize(bind = 'tcp://*:5555', context = ZMQ::Context.new)
       @context      = context
       @socket       = @context.socket(ZMQ::ROUTER)
       @poller       = ZMQ::Poller.new
+      @logger       = ActiveSupport::Logger.new(STDOUT)
       @services     = {}
       @workers      = {}
       @waiting      = []
@@ -19,9 +20,12 @@ module Majordomo
       @poller.register(@socket, ZMQ::POLLIN)
       trap(:INT) { exit }
       at_exit { destroy }
+
+      logger.debug "Broker is bound to: #{bind}"
     end
 
     def mediate
+      logger.debug 'Broker is waiting for incomming messages'
       loop do
         items = @poller.poll(HEARTBEAT_INTERVAL)
 
@@ -44,7 +48,6 @@ module Majordomo
             worker.send_message(HEARTBEAT)
           end
           @heartbeat_at = Time.now + 0.001 * HEARTBEAT_INTERVAL
-          puts "Heartbeat #{waiting.count}"
         end
       end
     end
@@ -68,6 +71,7 @@ module Majordomo
       case command
         when READY
           if worker_ready
+            logger.debug "Worker was already marked as ready. Sending DISCONNECT to worker #{identity}"
             worker.delete(true)
           else
             service        = message.shift
@@ -76,11 +80,13 @@ module Majordomo
             worker.service.waiting << worker
             worker.service.workers += 1
             worker.expires_at      = Time.now + 0.001 * HEARTBEAT_EXPIRY
+            logger.debug "Worker #{worker.service.name} is ready"
             worker.service.dispatch
           end
         when REPLY
           if worker_ready
             client = message.shift
+            logger.debug "Worker #{identity} has a reply for #{client.unpack('H*').first}"
             message.shift
             message.unshift(worker.service.name)
             message.unshift(CLIENT)
@@ -98,6 +104,7 @@ module Majordomo
             end
             worker.expires_at = Time.now + 0.001 * HEARTBEAT_EXPIRY
           else
+            logger.debug "Worker #{identity} send HEARTBEAT before READY"
             worker.delete(true)
           end
         when DISCONNECT
@@ -107,18 +114,48 @@ module Majordomo
 
     def message_client(sender, message)
       service_name = message.shift
-      service      = Service.require(self, service_name)
+      logger.debug "Client #{sender.unpack('H*').first} send MESSAGE to service #{service_name}"
 
-      message.unshift nil
-      message.unshift sender
+      case service_name
+        when 'mmi.service'
+          message_service(sender, message)
+        else
+          service = Service.require(self, service_name)
 
-      service.requests << message
-      service.dispatch
+          message.unshift nil
+          message.unshift sender
+
+          service.requests << message
+          service.dispatch
+          logger.debug "Queued messages for service [#{service.name}]: #{service.requests.count}"
+      end
+    end
+
+    def message_service(sender, message)
+      command = message.shift
+
+      result = case command
+        when 'list-services'
+          services.values
+        else
+          { errors: 'unknown command' }
+      end
+
+      message.unshift(result.to_json)
+      message.unshift(nil)
+      message.unshift(CLIENT)
+      message.unshift(nil)
+      message.unshift(sender)
+
+      @socket.send_strings(message)
     end
 
     def purge
       waiting.each do |worker|
-        worker.delete(false) if Time.now > worker.expires_at
+        if Time.now > worker.expires_at
+          logger.debug "Connection with worker #{worker.identity} lost"
+          worker.delete(false)
+        end
       end
     end
   end

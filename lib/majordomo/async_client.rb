@@ -1,11 +1,12 @@
 module Majordomo
-  class Client
-    attr_accessor :timeout, :client
+  class AsyncClient
+    attr_accessor :timeout, :client, :logger
 
     def initialize(broker, context = ZMQ::Context.new)
       @context = context
       @poller  = ZMQ::Poller.new
       @broker  = broker
+      @logger  = ActiveSupport::Logger.new(STDOUT)
 
       @timeout = 2500
 
@@ -30,15 +31,23 @@ module Majordomo
       @client.send_strings(request)
     end
 
-    def receive_message
-      @client.recv_strings(message = [])
-      message.shift
-      header = message.shift
-      raise unless header == CLIENT
+    def receive_message(timeout = 60)
+      items = @poller.poll(timeout * 1000)
+      if items > 0
+        logger.debug "Broker has #{items} items"
 
-      message.shift #service
+        @client.recv_strings(message = [])
+        message.shift
+        header = message.shift
+        raise unless header == CLIENT
 
-      message
+        message.shift #service
+
+        message
+      else
+        connect_to_broker
+        raise Timeout.new('Client timed out, reconnected to broker')
+      end
     end
   end
 end

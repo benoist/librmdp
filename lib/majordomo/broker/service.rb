@@ -6,12 +6,11 @@ module Majordomo
       attr_accessor :broker, :name, :requests, :waiting, :workers, :blacklist
 
       def initialize(broker, name)
-        @broker    = broker
-        @name      = name
-        @requests  = []
-        @waiting   = []
-        @workers   = 0
-        @blacklist = ::Set.new
+        @broker   = broker
+        @name     = name
+        @requests = []
+        @waiting  = []
+        @workers  = 0
       end
 
       def self.require(broker, name)
@@ -24,6 +23,15 @@ module Majordomo
         service
       end
 
+      def as_json(options = {})
+        {
+            name:            name,
+            workers:         workers,
+            requests:        requests.count,
+            workers_waiting: waiting.count
+        }
+      end
+
       def dispatch
         broker.purge
         return if waiting.empty?
@@ -34,18 +42,6 @@ module Majordomo
           worker.send_message(REQUEST, message)
           waiting << worker
         end
-      end
-
-      def enable_command(command)
-        @blacklist.delete(command)
-      end
-
-      def disable_command(command)
-        @blacklist.add(command)
-      end
-
-      def command_enabled?(command)
-        @blacklist.include?(command)
       end
     end
   end

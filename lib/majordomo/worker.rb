@@ -1,12 +1,13 @@
 module Majordomo
   class Worker
-    attr_accessor :broker, :service, :worker, :heartbeat_at, :heartbeat, :liveness, :reconnect
+    attr_accessor :broker, :service, :worker, :heartbeat_at, :heartbeat, :liveness, :reconnect, :logger
 
     def initialize(broker, service, context = ZMQ::Context.new)
       @context = context
       @poller  = ZMQ::Poller.new
       @broker  = broker
       @service = service
+      @logger  = ActiveSupport::Logger.new(STDOUT)
 
       @heartbeat = HEARTBEAT_INTERVAL
       @reconnect = HEARTBEAT_INTERVAL
@@ -23,7 +24,7 @@ module Majordomo
 
     def connect_to_broker
       if @worker
-        puts 'Closing connection to broker'
+        logger.debug 'Closing connection to broker'
         @poller.deregister(@worker, ZMQ::POLLIN)
         @worker.close
       end
@@ -31,10 +32,11 @@ module Majordomo
       @worker.connect(@broker)
       @worker.setsockopt(ZMQ::LINGER, 0)
       @poller.register(@worker, ZMQ::POLLIN)
-
-      send_to_broker(READY, [@service])
       @liveness     = HEARTBEAT_LIVENESS
       @heartbeat_at = Time.now + 0.001 * @heartbeat
+
+      logger.debug 'Sending READY to broker'
+      send_to_broker(READY, [@service])
     end
 
     def send_to_broker(command, message = [])
@@ -59,12 +61,14 @@ module Majordomo
           command = message.shift
           case command
             when REQUEST
+              logger.debug 'REQUEST from broker'
               reply_to << message.shift
               message.shift
               return message
             when HEARTBEAT
-            # Do nothing
+              #
             when DISCONNECT
+              logger.debug 'DISCONNECT from broker'
               connect_to_broker
             else
               raise
@@ -81,6 +85,7 @@ module Majordomo
     end
 
     def send_message(report, reply_to)
+      logger.debug 'Sending REPLY to broker'
       report.unshift('')
       report.unshift(reply_to)
       send_to_broker(REPLY, report)
