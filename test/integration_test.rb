@@ -8,13 +8,13 @@ class TestIntegration < MiniTest::Unit::TestCase
 
   def start_broker
     @threads << Thread.new do
-      Majordomo::Broker.new.mediate
+      Majordomo::Broker.new(Majordomo::Config.new).mediate
     end
   end
 
   def start_worker
     @threads << Thread.new do
-      worker = Majordomo::Worker.new('tcp://0.0.0.0:5555', 'echo')
+      worker = Majordomo::Worker.new(Majordomo::Config.new, 'echo')
 
       request = worker.receive_message(reply_to = '')
       worker.send_message(request, reply_to)
@@ -31,7 +31,7 @@ class TestIntegration < MiniTest::Unit::TestCase
     start_broker
     start_worker
 
-    client = Majordomo::Client.new('tcp://0.0.0.0:5555')
+    client = Majordomo::AsyncClient.new(Majordomo::Config.new)
     client.send_message('echo', 'a')
 
     assert_equal %w(a), client.receive_message

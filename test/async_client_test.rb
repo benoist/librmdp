@@ -3,7 +3,7 @@ require 'test_helper'
 class TestClient < MiniTest::Unit::TestCase
 
   def setup
-    @client = Majordomo::Client.new('tcp://0.0.0.0:5555')
+    @client = Majordomo::AsyncClient.new(Majordomo::Config.new)
   end
 
   def test_connect_to_broker

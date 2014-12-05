@@ -1,6 +1,6 @@
 require 'librmdp'
 
-worker   = Majordomo::Worker.new('tcp://0.0.0.0:5555', 'blaat')
+worker   = Majordomo::Worker.new(Majordomo::Config.new, 'blaat')
 @running = true
 
 while @running do

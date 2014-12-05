@@ -9,7 +9,7 @@ start = Time.now
 p 'Sending message'
 threads.times.collect do
   Thread.new do
-    client = Majordomo::AsyncClient.new('tcp://0.0.0.0:5555', context)
+    client = Majordomo::AsyncClient.new(Majordomo::Config.new, context)
     requests.times do |i|
       client.send_message('blaat', 'echo')
       client.send_message('mmi.service', 'list-services')

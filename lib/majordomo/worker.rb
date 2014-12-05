@@ -1,20 +1,24 @@
 module Majordomo
   class Worker
-    attr_accessor :broker, :service, :worker, :heartbeat_at, :heartbeat, :liveness, :reconnect, :logger
+    attr_accessor :broker, :service, :worker, :heartbeat_at, :heartbeat, :liveness, :reconnect
 
-    def initialize(broker, service, context = ZMQ::Context.new)
+    # @param [Majordomo::Config] config
+    def initialize(config, service, context = ZMQ::Context.new)
+      @config  = config
       @context = context
       @poller  = ZMQ::Poller.new
-      @broker  = broker
       @service = service
-      @logger  = ActiveSupport::Logger.new(STDOUT)
 
-      @heartbeat = HEARTBEAT_INTERVAL
-      @reconnect = HEARTBEAT_INTERVAL
+      @heartbeat = @config.heartbeat_interval
+      @reconnect = @config.heartbeat_liveness
       connect_to_broker
 
       trap(:INT) { exit }
       at_exit { destroy }
+    end
+
+    def logger
+      @config.logger
     end
 
     def destroy
@@ -29,10 +33,10 @@ module Majordomo
         @worker.close
       end
       @worker = @context.socket(ZMQ::DEALER)
-      @worker.connect(@broker)
+      @worker.connect(@config.broker_endpoint)
       @worker.setsockopt(ZMQ::LINGER, 0)
       @poller.register(@worker, ZMQ::POLLIN)
-      @liveness     = HEARTBEAT_LIVENESS
+      @liveness     = @config.heartbeat_liveness
       @heartbeat_at = Time.now + 0.001 * @heartbeat
 
       logger.debug 'Sending READY to broker'
@@ -53,7 +57,7 @@ module Majordomo
         if items > 0
           @worker.recv_strings(message = [])
 
-          @liveness = HEARTBEAT_LIVENESS
+          @liveness = @config.heartbeat_liveness
           message.shift
           header = message.shift
           raise unless header == WORKER

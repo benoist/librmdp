@@ -4,30 +4,35 @@ require 'majordomo/broker/worker'
 module Majordomo
   class Broker
 
-    attr_accessor :workers, :waiting, :services, :socket, :logger
+    attr_accessor :workers, :waiting, :services, :socket
 
-    def initialize(bind = 'tcp://*:5555', context = ZMQ::Context.new)
+    # @param [Majordomo::Config] config
+    def initialize(config, context = ZMQ::Context.new)
+      @config       = config
       @context      = context
       @socket       = @context.socket(ZMQ::ROUTER)
       @poller       = ZMQ::Poller.new
-      @logger       = ActiveSupport::Logger.new(STDOUT)
       @services     = {}
       @workers      = {}
       @waiting      = []
-      @heartbeat_at = Time.now + 0.001 * HEARTBEAT_INTERVAL
+      @heartbeat_at = Time.now + 0.001 * @config.heartbeat_interval
 
-      @socket.bind(bind)
+      @socket.bind(config.broker_endpoint)
       @poller.register(@socket, ZMQ::POLLIN)
       trap(:INT) { exit }
       at_exit { destroy }
 
-      logger.debug "Broker is bound to: #{bind}"
+      logger.debug "Broker is bound to: #{config.broker_endpoint}"
+    end
+
+    def logger
+      @config.logger
     end
 
     def mediate
-      logger.debug 'Broker is waiting for incomming messages'
+      logger.debug 'Broker is waiting for incoming messages'
       loop do
-        items = @poller.poll(HEARTBEAT_INTERVAL)
+        items = @poller.poll(@config.heartbeat_interval)
 
         if items > 0
           @socket.recv_strings(message = [])
@@ -47,7 +52,7 @@ module Majordomo
           waiting.each do |worker|
             worker.send_message(HEARTBEAT)
           end
-          @heartbeat_at = Time.now + 0.001 * HEARTBEAT_INTERVAL
+          @heartbeat_at = Time.now + 0.001 * @config.heartbeat_interval
         end
       end
     end
@@ -79,8 +84,8 @@ module Majordomo
             @waiting << worker
             worker.service.waiting << worker
             worker.service.workers += 1
-            worker.expires_at      = Time.now + 0.001 * HEARTBEAT_EXPIRY
-            logger.debug "Worker #{worker.service.name} is ready"
+            worker.expires_at      = Time.now + 0.001 * @config.heartbeat_expiry
+            logger.debug "Worker #{identity} for service #{worker.service.name} is ready"
             worker.service.dispatch
           end
         when REPLY
@@ -102,7 +107,7 @@ module Majordomo
               @waiting.delete(worker)
               @waiting << worker
             end
-            worker.expires_at = Time.now + 0.001 * HEARTBEAT_EXPIRY
+            worker.expires_at = Time.now + 0.001 * @config.heartbeat_expiry
           else
             logger.debug "Worker #{identity} send HEARTBEAT before READY"
             worker.delete(true)

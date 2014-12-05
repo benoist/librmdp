@@ -2,10 +2,12 @@ module Majordomo
   class AsyncClient
     attr_accessor :timeout, :client, :logger
 
-    def initialize(broker, context = ZMQ::Context.new)
+    # @param [Majordomo::Config] config
+    def initialize(config, context = ZMQ::Context.new)
+      @config  = config
       @context = context
       @poller  = ZMQ::Poller.new
-      @broker  = broker
+      @broker  = config.broker_endpoint
       @logger  = ActiveSupport::Logger.new(STDOUT)
 
       @timeout = 2500

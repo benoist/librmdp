@@ -1,3 +1,4 @@
 require 'librmdp'
 
-Majordomo::Broker.new.mediate
+config = Majordomo::Config.new
+Majordomo::Broker.new(config).mediate
